@@ -1,0 +1,639 @@
+---
+title: "hw06- Data wrangling wrap up"
+author: "Meiqi Yu"
+output:
+  github_document:
+     toc: yes
+always_allow_html: yes
+editor_options:
+  chunk_output_type: inline
+---
+
+# Introduction
+
+For this assignment, we have been tasked with two topics out of six. 
+
+# Load packages
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+library(knitr)
+library(repurrrsive)
+library(gapminder)
+suppressPackageStartupMessages(library(leaflet))
+suppressPackageStartupMessages(library(ggmap))
+suppressPackageStartupMessages(library(MASS))
+suppressPackageStartupMessages(library(stringi))
+
+```
+
+# First Task: Character data
+
+I will work on the exercises in the [Strings chapter](https://r4ds.had.co.nz/strings.html).
+
+## Exercises in 14.2.5
+
+### 1.In code that doesn't use stringr, you'll often see paste() and paste0(). What's the difference between the two functions? What stringr function are they equivalent to? How do the functions differ in their handling of NA?
+
+The difference can be seen by the example below.
+```{r}
+paste("Hello","World")
+paste0("Hello","World")
+```
+* By `paste()`: There is a space between each string;
+* By `paste0()`: There is NO space between each string.
+
+The equivalent stringr functions are shown beolow.
+```{r}
+paste0("Hello","World")
+str_c("Hello","World")
+
+```
+* `paste0()`: equivalent to `str_c()`.
+
+Now, let's figure out how do these functions differ in their handling of NA.
+```{r}
+paste("Hello","World",NA)
+paste0("Hello","World",NA)
+str_c("Hello","World",NA)
+```
+* `paste()` and `paste0()`: see NA as a string and return all the strings incluing NA
+* `str_c()`: only NA is returned regardless of the other strings
+
+### 2.In your own words, describe the difference between the `sep` and `collapse` arguments to str_c().
+
+```{r}
+str_c(c("2018","SEP","1"),"Sunny",sep="-")
+str_c(c("2018","SEP","1"),"Sunny",collapse="-")
+```
+* By `sep`: add the sep argument behind each string,
+            the number of output is same to that of input;
+* By `collapse`: add the collapse argument behind each string and return all the strings together as one             whole string, 
+            only ONE output.
+
+### 3.Use str_length() and str_sub() to extract the middle character from a string. What will you do if the string has an even number of characters?
+
+For strings with odd number of characters: extract the middle character from the string.
+```{r}
+x1 <- "abc" #odd number
+n_x1 <- str_length(x1)
+str_sub(x1,(n_x1+1)/2,(n_x1+1)/2)
+```
+
+For strings with even number of characters: extract the middle two characters from the string.
+```{r}
+x2 <- "abcd" # even number
+n_x2 <- str_length(x2) # calculate the length of the strings
+str_sub(x2,(n_x2)/2,(n_x2)/2+1)
+```
+
+Now, an obvious question is: Can we extract the middle character in the same way no matter the string has an odd or even characters?
+
+The answer is YES! It can be done by `ceiling()`.
+
+```{r}
+x3 <- c("a", "abc", "abcd", "abcde")
+n_x3 <- str_length(x3)
+str_sub(x3, ceiling(n_x3/2), n_x3/2+1) #extract from the ceiling for the middle character
+```
+
+### 5. What does str_trim() do? What’s the opposite of str_trim()?
+
+* `str_trim()` deletes the whitespace from a string.
+```{r}
+str_trim(" a b c ",side = "left") # delete from left
+str_trim(" a b c ",side = "right") # delete from right
+str_trim(" a b c ",side = "both")# delete from both
+```
+
+* The opposite of `str_trim()` is `str_pad()`, which add whitespace(s) to a string.
+```{r}
+str_pad("a b c",width=6, side = "left") # add left side,total width is 6
+str_pad("a b c",width=7, side = "both") # add both side,total width is 7
+```
+
+### 6. Write a function that turns (e.g.) a vector c("a", "b", "c") into the string "a, b, and c". Think carefully about what it should do if given a vector of length 0, 1, or 2.
+
+First, I write a function as below to turn a vector into a string as required.
+
+```{r}
+vector_to_string <- function(x){
+   if(length(x) == 0){
+    return(str_c("Please enter a vector")) # with vector of length 0, it's better to show a error information
+  }
+   if(length(x) ==1){
+    return(x) # with vector of length 1, return itself
+  }
+   if(length(x)==2){
+      str0=str_c(x[1],", and ",x[2])
+      return(str0)
+   }
+   else{
+      str1 <- str_c(x[1:length(x)-1],collapse=", ") # the first part of the string
+      str2 <- str_c(str1,", and ", x[length(x)])
+      return(str2)
+   }
+}
+```
+Now, let's test it with vectors of length 0,1,2 or more. 
+```{r}
+str_0 <- c()
+vector_to_string(str_0)
+
+str_1 <- c("A")
+vector_to_string(str_1)
+
+str_2 <- c("A","B")
+vector_to_string(str_2)
+
+str_3 <- c("A","B","C")
+vector_to_string(str_3)
+```
+
+## Exercises in 14.3.1.1
+
+### 1. Explain why each of these strings don't match a \: "\", "\\", "\\\".
+
+Regexps use the backslash, \, to escape special behaviour. 
+
+String    | Meaning
+----------------|------------------------
+   \      |  excape the next character
+   \\     | resolve to \ in the regular expression
+   \\\      | the first two backslashes will resolve to a literal backslash in the regular expression, the third will escape the next character
+
+### 2. How would you match the sequence "'\?
+
+```{r}
+x <- "\"\'\\"
+str_view(x, "\\\"\\'\\\\") 
+```
+
+### 3. What patterns will the regular expression \..\..\.. match? How would you represent it as a string?
+
+```{r}
+x<-"\\..\\..\\.."
+writeLines(x)
+str_c(writeLines(x))
+```
+
+
+## Exercises in 14.3.2.1
+
+### 1. How would you match the literal string "$^$"?
+
+```{r}
+x <- "$^$"
+str_view(x, "^\\$\\^\\$$")
+```
+
+### 2.Given the corpus of common words in stringr::words, create regular expressions that find all words that:
+
+1. Start with “y”.
+```{r}
+str_view(words, "^y", match =TRUE)
+```
+
+
+2. End with “x”
+
+```{r}
+str_view(words, "x$", match =TRUE)
+```
+
+
+3. Are exactly three letters long. (Don’t cheat by using str_length()!)
+
+```{r}
+str_view(words, "^...$", match = TRUE)
+```
+
+4. Have seven letters or more.
+
+```{r}
+str_view(words, ".......", match = TRUE)
+```
+
+## Exercises in 14.3.3.1
+
+### 1. Create regular expressions to find all words that:
+1. Start with a vowel.
+
+```{r}
+str_view(words, "^[aeiou]", match = TRUE)
+```
+
+2. That only contain consonants. (Hint: thinking about matching “not”-vowels.)
+
+```{r}
+str_view(words, "^[^aeiou]+$", match=TRUE)
+```
+
+3. End with ed, but not with eed.
+
+```{r}
+str_view(words, "^ed$|[^e]ed$", match = TRUE)
+```
+
+4. End with ing or ise.
+
+```{r}
+str_view(words, "i(ng|se)$", match = TRUE)
+```
+
+
+### 2. Empirically verify the rule “i before e except after c”.
+
+```{r}
+str_view(words, "(cei|[^c]ie)", match = TRUE)
+```
+```{r}
+str_view(words, "(cie|[^c]ei)", match = TRUE)
+```
+
+
+### 3. Is “q” always followed by a “u”?
+
+```{r}
+str_view(words, "q[^u]", match = TRUE)
+```
+We get no return, so the answer is NO.
+
+## Exercises in 14.3.4.1
+
+### 1. Describe the equivalents of ?, +, * in {m,n} form.
+
+expression    | equivalents in {m,n} form
+----------------|------------------------
+   `?`      |  {0,1}
+  `+`      |  {1,}
+       `*`      |  {0,}
+   
+   
+   
+
+### 2. Describe in words what these regular expressions match: (read carefully to see if I’m using a regular expression or a string that defines a regular expression.)
+1.` ^.*$` matches any string.
+
+
+
+2. `"\\{.+\\}"` matches any string which contains `{xx}`, where `xx` can be any character(s).
+
+3. `\d{4}-\d{2}-\d{2}` mastches `xxxx-xx-xx`, where `x` represents a digit.
+
+
+4. `"\\\\{4}"` matches four backslashes.
+
+### 3. Create regular expressions to find all words that:
+1. Start with three consonants.
+
+```{r}
+str_view(words, "^[^aeiou]{3}")
+```
+
+2. Have three or more vowels in a row.
+
+```{r}
+str_view(words, "[aeiou]{3,}")
+```
+
+3. Have two or more vowel-consonant pairs in a row.
+
+```{r}
+str_view(words, "([aeiou][^aeiou]){2,}")
+```
+
+
+## Exercises in 14.4.2
+
+### 1.For each of the following challenges, try solving it by using both a single regular expression, and a combination of multiple str_detect() calls.
+1. Find all words that start or end with x.
+
+A single regular expression:
+```{r}
+str_subset(words,"(^x)|(x$)")
+```
+A combination of multiple str_detect():
+```{r}
+str_start <- str_detect(words, "^x")
+str_end <- str_detect(words, "x$")
+words[str_start|str_end]
+```
+
+2. Find all words that start with a vowel and end with a consonant.
+
+A single regular expression:
+```{r}
+str_subset(words,"^[aeiou].*[^aeiou]$")%>%
+   head() # just show the first six here to avoid large output
+```
+A combination of multiple str_detect():
+```{r}
+s1<-str_detect(words, "^[aeiou]")
+s2<-str_detect(words,"[^aeiou]$")
+head(words[s1&s2])
+```
+
+3. Are there any words that contain at least one of each different vowel?
+```{r}
+str_subset(words,"^[aeiou].*[aeiou]")%>%
+   head() # just show the first six here to avoid large output
+```
+
+### 2. What word has the highest number of vowels? What word has the highest proportion of vowels? (Hint: what is the denominator?)
+
+Find the word with the highest number of vowels:
+
+```{r}
+n_max <- max(str_count(words,"[aeiou]")) # highest number of vowels
+words[str_count(words,"[aeiou]")==n_max]
+```
+
+Find the word with the highest proportion of vowels:
+```{r}
+n_vowels <- str_count(words,"[aeiou]") # count the number of vowels of each word
+n_total <- str_count(words,".") # count the number of character of each word
+max(n_vowels/n_total) # highest proportion of vowels
+words[n_vowels/n_total==max(n_vowels/n_total)]
+```
+
+
+## Exercises in 14.4.3.1
+
+### 1. In the previous example, you might have noticed that the regular expression matched "flickered", which is not a colour. Modify the regex to fix the problem.
+
+I match the boundary between words with `\b`.
+
+```{r}
+colours <- c("red", "orange", "yellow", "green", "blue", "purple")
+colour_match <- str_c(colours, collapse = "|")
+b_colour_match <- str_c("\\b", colour_match, "\\b")
+b_colour_match
+more <- sentences[str_count(sentences, b_colour_match) > 1]
+str_view_all(more, colour_match)
+```
+
+### 2. From the Harvard sentences data, extract:
+1. The first word from each sentence.
+```{r}
+n1<-"^[^ ]+"
+str_extract(sentences,n1) %>%
+   head()
+```
+
+
+2. All words ending in ing.
+
+```{r}
+n2<-"([^ ]+)ing"
+s<-str_subset(sentences,n2)
+str_extract(s,n2) %>%
+   head()
+```
+
+
+## Exercises in 14.5.1
+
+### 1.How would you find all strings containing \ with regex() vs. with fixed()?
+
+Let's create test strings `test_s` first to find all strings containing \.
+
+```{r}
+test_s <- c("a\\b\\c","1\\2","hello")
+```
+
+Use `regex()`:
+```{r}
+str_view_all(test_s, regex(pattern = "\\\\"))
+```
+Use `fixed()`:
+```{r}
+str_detect(test_s, fixed(pattern = "\\"))
+```
+
+### 2.What are the five most common words in sentences?
+
+Install the library `tidytext`,then we can find the most common words
+
+```{r}
+library(tidytext)
+library(dplyr)
+data_frame(text=sentences) %>% 
+    unnest_tokens(word, text) %>%    # split words
+    count(word, sort = TRUE) %>% # count occurrences
+    head(5)
+```
+
+We can see that the five most common words are "a", "an", "the" etc.
+Futhermore, if we want take out these words, we can do it as below.
+```{r}
+data_frame(text=sentences) %>% 
+    unnest_tokens(word, text) %>%    # split words
+    anti_join(stop_words) %>%    # take out "a", "an", "the", etc.
+    count(word, sort = TRUE) %>% # count occurrences
+    head(5)
+```
+
+
+## Exercises in 14.7.1
+
+### 1. Find the stringi functions that:
+1.Count the number of words.
+```{r}
+
+stri_count_words("Today is the deadline of hw06")
+```
+
+2. Find duplicated strings.
+
+```{r}
+stri_duplicated(c("a","b","c",NA,"a","b","d","e",NA))
+stri_duplicated_any(c("a","b","c",NA,"a","b","d","e",NA))
+```
+* `stri_duplicated()` shows whether this string is duplicated or not.
+* `stri_duplicated_any()` shows the number of duplicated strings.
+
+
+3. Generate random text.
+Random generation can be done by `stri_rand_strings()` and `stri_rand_shuffle()`.
+
+Generate random strings of specific length:
+```{r}
+stri_rand_strings(5, 10) # 5 strings of length 10
+```
+Generate random strings of random length:
+```{r}
+stri_rand_strings(5, sample(1:10, 5, replace=TRUE)) # 5 strings of random lengths
+```
+
+Generate a string consisting of at least one digit, small and big ASCII letter, which is quite useful in creating a random password:
+
+```{r}
+n <- 10 # number of strings
+stri_rand_shuffle(stri_paste(
+   stri_rand_strings(n, 1, '[0-9]'),
+   stri_rand_strings(n, 1, '[a-z]'),
+   stri_rand_strings(n, 1, '[A-Z]'),
+   stri_rand_strings(n, sample(5:11, 5, replace=TRUE), '[a-zA-Z0-9]')
+))
+```
+
+
+### 2.How do you control the language that stri_sort() uses for sorting?
+
+In order to control the language, we can set a locale to use when sorting by `stri_sort(..., locale = ...)`.
+
+```{r}
+stri_sort(c("hladny", "chladny"), locale="pl_PL")
+
+stri_sort(c("hladny", "chladny"), locale="sk_SK")
+```
+
+# Second Task: Write functions
+
+In this part, the task requires us to write one (or more) functions that do something useful to pieces of the Gapminder or Singer data. I will begin with the linear regression function presented here[http://stat545.com/block012_function-regress-lifeexp-on-year.html], and generalize that to do quadratic regression (include a squared term).
+
+## Generate a dataframe called `j_dat`
+
+I extract the data for Zimbabwe from `gapminder` in order to get a reasonable dataframe. The new dataframe is called `j_dat`. I will try to do the quadratic regression for this country's life expectancy over the years.
+
+```{r}
+j_country <- "Zimbabwe" # an example
+(j_dat <- gapminder %>% 
+  filter(country == j_country))
+```
+
+## Result from linear regression
+
+Now, let's plot the data first.
+```{r}
+j_dat %>% 
+   ggplot(aes(x = year, y = lifeExp))+
+   geom_point() + 
+   geom_smooth(method = "lm", se = FALSE)+ 
+   ggtitle("Linear regression of Zimbabwe's lifeExp over years")+
+   theme( plot.title = element_text(hjust = 0.5))
+
+```
+
+We can obtain detailed information on linear regression through the summary() command as below.
+
+```{r}
+attach(j_dat) #attach the entire dataset so that we can refer to all variables directly by name
+names(j_dat)
+j_fit <-lm(lifeExp ~ year)
+summary(j_fit)
+```
+
+
+From the `summary()` result, we can obtain some useful coefficients along with four goodness-of-fit measures for regression analysis. 
+
+* Std. Error is Residual Standard Error (see below) divided by the square root of the sum of the square of that particular x variable.
+
+* t value: Estimate divided by Std. Error
+
+* Pr(>|t|): Look up your t value in a T distribution table with the given degrees of freedom.
+
+* Residual Standard Error: Essentially standard deviation of residuals / errors of your regression model.
+
+* Multiple R-Squared: Percent of the variance of Y intact after subtracting the error of the model.
+
+* Adjusted R-Squared: Same as multiple R-Squared but takes into account the number of samples and variables you're using.
+
+* F-Statistic: Global test to check if your model has at least one significant variable.  Takes into account number of variables and observations used.
+
+
+The estimated intercept here which equals to 236 is apparently unreasonable. 
+
+It makes more sense for the intercept to correspond to life expectancy in 1952, the earliest date in our dataset. 
+
+What am I doing here: `lm(lifeExp ~ I(year - 1952))`?
+I want the intercept to correspond to 1952 and an easy way to accomplish that is to create a new predictor on the fly: year minus 1952. The way I achieve that in the model formula, I(year - 1952), uses the I() function which "inhibits interpretation/conversion of objects". By protecting the expression year - 1952, I ensure it is interpreted in the obvious arithmetical way.
+
+```{r}
+j_fit <- lm(lifeExp ~ I(year - 1952), j_dat)
+summary(j_fit)
+```
+From the summary above, we could obtain some useful coefficients: the intercept turns out to be 55.22,  which seems more reasonable. Meanwhile, the standard error of that decreases to 3.9.
+
+## Result from Quadratic regression
+
+
+First, we have to create a new variable called `year2` which is the square of the variable `year`.
+```{r}
+year2 <- year^2
+```
+
+Now, let's fit the quadratic regression to the dataframe.
+```{r}
+j_fit <- lm(lifeExp ~ year + year2)
+summary(j_fit)
+```
+
+Unfortunately, the result looks terrible! The lifeExp equals to minus 81,180 years around year 0 A.D! Std. Error equals to 18,030 which is totally unacceptable. 
+
+Let's handle the offset in the way above.
+
+```{r}
+j_fit <- lm(lifeExp ~ I(year-1952) + I(year2-1952^2))
+summary(j_fit)
+```
+Great! The result looks better now. The intercept turns out to be 45.69,  which seems more reasonable. Meanwhile, the standard error of that decreases to 3.1.
+
+Now, let's plot the data.
+```{r}
+j_dat %>% 
+   ggplot(aes(x = year, y = lifeExp))+
+   geom_point() + 
+   geom_smooth(method = "lm", formula = y ~ x + I(x^2))+ 
+   ggtitle("Quadratic regression of Zimbabwe's lifeExp over years")+
+   theme( plot.title = element_text(hjust = 0.5))
+```
+It shows that quadratic regression show some advantages over linear regression in this case. 
+
+## Create a function which do the quadratic regression with an automatic offset
+
+From the results above, we could know that it is more reasonable to do the quadratic regression with the intercept year offset to 1952. The new function we will create below is called `quad_fit_1952`.
+
+```{r}
+quad_fit_1952 <- function(dat, offset = 1952){
+  j_fit <- lm(lifeExp ~ I(year-1952) + I(year2-1952^2))
+  summary(j_fit)
+}
+```
+
+The function has been created, let's try it with `j_dat` dataframe.
+```{r}
+quad_fit_1952(j_dat)
+```
+
+The estimated intercept looks good above. The function works well with an automatic offset. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
